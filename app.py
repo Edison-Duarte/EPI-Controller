@@ -188,25 +188,27 @@ with tab_dashboard:
         st.info("Nenhum dado encontrado para os filtros selecionados.")
 
 # ----------------------------------------------------------------------------------------
-# ABA 3: HISTÓRICO, CONSULTA E EDIÇÃO (FILTROS DINÂMICOS BASEADOS NOS DADOS EXISTENTES)
+# ABA 3: HISTÓRICO, CONSULTA E EDIÇÃO (TODOS OS FILTROS COMO MENUS SUSPENSOS INTELIGENTES)
 # ----------------------------------------------------------------------------------------
 with tab_historico:
     st.subheader("Histórico Geral e Rastreabilidade")
     st.markdown("💡 *Dica: Você pode filtrar antes de analisar ou alterar os dados diretamente na tabela abaixo.*")
     
-    # Puxando dinamicamente as opções existentes no banco de dados para popular os filtros
+    # Gerando as listas únicas baseadas exclusivamente no que já existe gravado no Histórico
+    lista_funcionarios = ["Todos"] + sorted(st.session_state.df_epi["Funcionário"].dropna().unique().tolist())
     lista_setores = ["Todos"] + sorted(st.session_state.df_epi["Setor"].dropna().unique().tolist())
     lista_epis = ["Todos"] + sorted(st.session_state.df_epi["EPI"].dropna().unique().tolist())
+    lista_cas = ["Todos"] + sorted(st.session_state.df_epi["CA"].astype(str).dropna().unique().tolist())
     
-    # Painel expansível contendo os filtros dinâmicos
+    # Painel expansível contendo os filtros dinâmicos (Todos viraram Selectbox)
     with st.expander("🔍 Painel de Filtros Avançados", expanded=True):
         f_col1, f_col2, f_col3 = st.columns(3)
         with f_col1:
-            busca_nome = st.text_input("Nome do Funcionário:")
-            busca_setor = st.selectbox("Filtrar por Setor:", lista_setores) # Transformado em Menu Suspenso Inteligente
+            busca_nome = st.selectbox("Filtrar por Funcionário:", lista_funcionarios)
+            busca_setor = st.selectbox("Filtrar por Setor:", lista_setores)
         with f_col2:
-            busca_epi = st.selectbox("Filtrar por Tipo de EPI:", lista_epis) # Transformado em Menu Suspenso Inteligente
-            busca_ca = st.text_input("Número do CA:")
+            busca_epi = st.selectbox("Filtrar por Tipo de EPI:", lista_epis)
+            busca_ca = st.selectbox("Filtrar por Número do CA:", lista_cas)
         with f_col3:
             df_periodo = st.session_state.df_epi.copy()
             df_periodo["Data"] = pd.to_datetime(df_periodo["Data"])
@@ -218,15 +220,15 @@ with tab_historico:
     df_filtrado_hist = st.session_state.df_epi.copy()
     df_filtrado_hist["Data"] = pd.to_datetime(df_filtrado_hist["Data"])
     
-    # Aplicando os filtros na tabela
-    if busca_nome:
-        df_filtrado_hist = df_filtrado_hist[df_filtrado_hist["Funcionário"].str.contains(busca_nome, case=False)]
+    # Aplicando as regras de filtragem baseadas nas seleções dos menus suspensos
+    if busca_nome != "Todos":
+        df_filtrado_hist = df_filtrado_hist[df_filtrado_hist["Funcionário"] == busca_nome]
     if busca_setor != "Todos":
         df_filtrado_hist = df_filtrado_hist[df_filtrado_hist["Setor"] == busca_setor]
     if busca_epi != "Todos":
         df_filtrado_hist = df_filtrado_hist[df_filtrado_hist["EPI"] == busca_epi]
-    if busca_ca:
-        df_filtrado_hist = df_filtrado_hist[df_filtrado_hist["CA"].str.contains(busca_ca, case=False)]
+    if busca_ca != "Todos":
+        df_filtrado_hist = df_filtrado_hist[df_filtrado_hist["CA"].astype(str) == busca_ca]
     if len(busca_periodo) == 2:
         df_filtrado_hist = df_filtrado_hist[(df_filtrado_hist["Data"].dt.date >= busca_periodo[0]) & (df_filtrado_hist["Data"].dt.date <= busca_periodo[1])]
 
@@ -251,8 +253,8 @@ with tab_historico:
     if st.button("💾 Salvar Alterações no Histórico", type="primary"):
         df_editado["Total"] = df_editado["Qtd"] * df_editado["Valor Unitário"]
         
-        # Se usou filtros, atualiza apenas as linhas que foram filtradas na tela
-        if busca_nome or (busca_setor != "Todos") or (busca_epi != "Todos") or busca_ca or (len(busca_periodo) == 2):
+        # Se usou qualquer filtro, remove as linhas antigas correspondentes e insere as atualizadas
+        if (busca_nome != "Todos") or (busca_setor != "Todos") or (busca_epi != "Todos") or (busca_ca != "Todos") or (len(busca_periodo) == 2):
             st.session_state.df_epi = st.session_state.df_epi.drop(df_filtrado_hist.index)
             st.session_state.df_epi = pd.concat([st.session_state.df_epi, df_editado], ignore_index=True)
         else:
