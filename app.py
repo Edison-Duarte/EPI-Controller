@@ -49,9 +49,8 @@ with tab_cadastro:
     with col_ca1:
         ca_digitado = st.text_input("1. Digite o número do CA para buscar no MTE:", key="ca_input").strip()
     with col_ca2:
-st.markdown("<br>", unsafe_allow_html=True) 
-# Alinhamento visual corrigido
-st.link_button("🌐 Consultar CA no MTE", "https://caepi.mte.gov.br/internet/ConsultaCAInternet.aspx", use_container_width=True)
+        st.markdown("<br>", unsafe_allow_html=True) # LINHA 52 CORRIGIDA AQUI
+        st.link_button("🌐 Consultar CA no MTE", "https://caepi.mte.gov.br/internet/ConsultaCAInternet.aspx", use_container_width=True)
     
     # Variáveis de controle para o preenchimento automático
     desc_automatica = ""
@@ -86,11 +85,11 @@ st.link_button("🌐 Consultar CA no MTE", "https://caepi.mte.gov.br/internet/Co
         col1, col2, col3 = st.columns(3)
         with col1:
             nome = st.text_input("Nome do Funcionário")
-            setor = st.text_input("Setor") # Alterado para campo livre (Texto)
+            setor = st.text_input("Setor")
             funcao = st.text_input("Função")
         
         with col2:
-            tipo_epi = st.text_input("Tipo de EPI", value=tipo_epi_sugerido) # Alterado para campo livre (Texto)
+            tipo_epi = st.text_input("Tipo de EPI", value=tipo_epi_sugerido)
             motivo = st.selectbox("Motivo da Entrega/Troca", ["Desgaste Normal", "Desgaste Excessivo", "Perda", "Primeira Entrega"])
             data_entrega = st.date_input("Data de Entrega", datetime.now())
             
@@ -127,7 +126,7 @@ st.link_button("🌐 Consultar CA no MTE", "https://caepi.mte.gov.br/internet/Co
             st.error("Por favor, preencha todos os campos obrigatórios (Nome, CA, Setor, Tipo de EPI e Valor Unitário).")
 
 # ----------------------------------------------------------------------------------------
-# ABA 2: DASHBOARD DE GASTOS
+# DASHBOARD DE GASTOS
 # ----------------------------------------------------------------------------------------
 with tab_dashboard:
     st.subheader("Análise Estratégica de Custos")
@@ -177,7 +176,7 @@ with tab_dashboard:
         st.info("Nenhum dado encontrado para os filtros selecionados.")
 
 # ----------------------------------------------------------------------------------------
-# ABA 3: HISTÓRICO, CONSULTA E EDIÇÃO
+# HISTÓRICO, CONSULTA E EDIÇÃO
 # ----------------------------------------------------------------------------------------
 with tab_historico:
     st.subheader("Histórico Geral e Rastreabilidade")
@@ -214,5 +213,5 @@ with tab_historico:
         else:
             st.session_state.df_epi = df_editado
             
-        st.success("Histórico updated com sucesso!")
+        st.success("Histórico atualizado com sucesso!")
         st.rerun()
