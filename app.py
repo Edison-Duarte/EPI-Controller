@@ -6,8 +6,9 @@ from datetime import datetime, timedelta
 # Configuração da página
 st.set_page_config(page_title="Gestão de EPI & Custos", layout="wide", page_icon="🛡️")
 
-# --- SIMULAÇÃO DE BANCO DE DADOS (SESSION STATE) ---
-if "df_epi" not in st.session_state:
+# --- SIMULAÇÃO DE BANCO DE DADOS (SESSION STATE CORRIGIDO) ---
+# Usando .get() para garantir que se o banco já existir, ele NUNCA seja sobrescrito pelos dados iniciais
+if "df_epi" not in st.session_state or st.session_state.get("df_epi") is None:
     dados_iniciais = [
         {"Data": datetime(2026, 1, 15), "Funcionário": "João Silva", "Setor": "Operacional", "Função": "Marinheiro", "EPI": "Bota de PVC", "CA": "12345", "Status CA": "Válido", "Vencimento CA": "2028-12-31", "Qtd": 2, "Valor Unitário": 50.0, "Total": 100.0, "Motivo": "Desgaste Normal", "Próxima Troca": "2026-07-15"},
         {"Data": datetime(2026, 2, 10), "Funcionário": "Maria Souza", "Setor": "Manutenção", "Função": "Mecânico", "EPI": "Luva Nitrílica", "CA": "54321", "Status CA": "Válido", "Vencimento CA": "2027-05-18", "Qtd": 5, "Valor Unitário": 15.0, "Total": 75.0, "Motivo": "Desgaste Excessivo", "Próxima Troca": "2026-03-10"},
@@ -125,7 +126,7 @@ with tab_cadastro:
             st.error("Por favor, preencha todos os campos obrigatórios (Nome, CA, Setor, Tipo de EPI e Valor Unitário).")
 
 # ----------------------------------------------------------------------------------------
-# ABA 2: DASHBOARD DE GASTOS
+# DASHBOARD DE GASTOS
 # ----------------------------------------------------------------------------------------
 with tab_dashboard:
     st.subheader("Análise Estratégica de Custos")
@@ -188,19 +189,17 @@ with tab_dashboard:
         st.info("Nenhum dado encontrado para os filtros selecionados.")
 
 # ----------------------------------------------------------------------------------------
-# ABA 3: HISTÓRICO, CONSULTA E EDIÇÃO (TODOS OS FILTROS COMO MENUS SUSPENSOS INTELIGENTES)
+# ABA 3: HISTÓRICO, CONSULTA E EDIÇÃO
 # ----------------------------------------------------------------------------------------
 with tab_historico:
     st.subheader("Histórico Geral e Rastreabilidade")
     st.markdown("💡 *Dica: Você pode filtrar antes de analisar ou alterar os dados diretamente na tabela abaixo.*")
     
-    # Gerando as listas únicas baseadas exclusivamente no que já existe gravado no Histórico
     lista_funcionarios = ["Todos"] + sorted(st.session_state.df_epi["Funcionário"].dropna().unique().tolist())
     lista_setores = ["Todos"] + sorted(st.session_state.df_epi["Setor"].dropna().unique().tolist())
     lista_epis = ["Todos"] + sorted(st.session_state.df_epi["EPI"].dropna().unique().tolist())
     lista_cas = ["Todos"] + sorted(st.session_state.df_epi["CA"].astype(str).dropna().unique().tolist())
     
-    # Painel expansível contendo os filtros dinâmicos (Todos viraram Selectbox)
     with st.expander("🔍 Painel de Filtros Avançados", expanded=True):
         f_col1, f_col2, f_col3 = st.columns(3)
         with f_col1:
@@ -216,11 +215,9 @@ with tab_historico:
             h_max_date = df_periodo["Data"].max().date() if not df_periodo.empty else datetime.now().date()
             busca_periodo = st.date_input("Período de Entrega:", [h_min_date, h_max_date], key="busca_periodo_hist")
 
-    # Copiando banco para aplicar filtros sucessivos
     df_filtrado_hist = st.session_state.df_epi.copy()
     df_filtrado_hist["Data"] = pd.to_datetime(df_filtrado_hist["Data"])
     
-    # Aplicando as regras de filtragem baseadas nas seleções dos menus suspensos
     if busca_nome != "Todos":
         df_filtrado_hist = df_filtrado_hist[df_filtrado_hist["Funcionário"] == busca_nome]
     if busca_setor != "Todos":
@@ -232,14 +229,12 @@ with tab_historico:
     if len(busca_periodo) == 2:
         df_filtrado_hist = df_filtrado_hist[(df_filtrado_hist["Data"].dt.date >= busca_periodo[0]) & (df_filtrado_hist["Data"].dt.date <= busca_periodo[1])]
 
-    # Exibindo métrica rápida do resultado filtrado
     if not df_filtrado_hist.empty:
         custo_filtrado_hist = df_filtrado_hist["Total"].sum()
         st.info(f"📊 Registros encontrados: **{df_filtrado_hist.shape[0]}** | Custo Acumulado do Filtro: **R$ {custo_filtrado_hist:,.2f}**")
     else:
         st.warning("⚠️ Nenhum registro encontrado para essa combinação de filtros.")
 
-    # Renderizando o editor de dados com o dataframe filtrado
     df_editado = st.data_editor(
         df_filtrado_hist, 
         use_container_width=True, 
@@ -253,12 +248,11 @@ with tab_historico:
     if st.button("💾 Salvar Alterações no Histórico", type="primary"):
         df_editado["Total"] = df_editado["Qtd"] * df_editado["Valor Unitário"]
         
-        # Se usou qualquer filtro, remove as linhas antigas correspondentes e insere as atualizadas
         if (busca_nome != "Todos") or (busca_setor != "Todos") or (busca_epi != "Todos") or (busca_ca != "Todos") or (len(busca_periodo) == 2):
             st.session_state.df_epi = st.session_state.df_epi.drop(df_filtrado_hist.index)
             st.session_state.df_epi = pd.concat([st.session_state.df_epi, df_editado], ignore_index=True)
         else:
             st.session_state.df_epi = df_editado
             
-        st.success("Histórico atualizado com sucesso!")
+        st.success("Histórico updated com sucesso!")
         st.rerun()
