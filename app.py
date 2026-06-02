@@ -49,7 +49,7 @@ with tab_cadastro:
     with col_ca1:
         ca_digitado = st.text_input("1. Digite o número do CA para buscar no MTE:", key="ca_input").strip()
     with col_ca2:
-        st.markdown("<br>", unsafe_allow_html=True) # LINHA 52 CORRIGIDA AQUI
+        st.markdown("<br>", unsafe_allow_html=True)
         st.link_button("🌐 Consultar CA no MTE", "https://caepi.mte.gov.br/internet/ConsultaCAInternet.aspx", use_container_width=True)
     
     # Variáveis de controle para o preenchimento automático
@@ -81,7 +81,8 @@ with tab_cadastro:
     st.markdown("---")
     st.markdown("**2. Dados Complementares da Entrega:**")
     
-    with st.form("form_entrega", clear_on_submit=True):
+    # ALTERADO APENAS O clear_on_submit PARA False AQUI PARA CORRIGIR O ERRO DE VALIDAÇÃO
+    with st.form("form_entrega", clear_on_submit=False):
         col1, col2, col3 = st.columns(3)
         with col1:
             nome = st.text_input("Nome do Funcionário")
