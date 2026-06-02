@@ -11,10 +11,11 @@ if "df_epi" not in st.session_state:
     dados_iniciais = [
         {"Data": datetime(2026, 1, 15), "Funcionário": "João Silva", "Setor": "Operacional", "Função": "Marinheiro", "EPI": "Bota de PVC", "CA": "12345", "Status CA": "Válido", "Vencimento CA": "2028-12-31", "Qtd": 2, "Valor Unitário": 50.0, "Total": 100.0, "Motivo": "Desgaste Normal", "Próxima Troca": "2026-07-15"},
         {"Data": datetime(2026, 2, 10), "Funcionário": "Maria Souza", "Setor": "Manutenção", "Função": "Mecânico", "EPI": "Luva Nitrílica", "CA": "54321", "Status CA": "Válido", "Vencimento CA": "2027-05-18", "Qtd": 5, "Valor Unitário": 15.0, "Total": 75.0, "Motivo": "Desgaste Excessivo", "Próxima Troca": "2026-03-10"},
+        {"Data": datetime(2026, 3, 5), "Funcionário": "Carlos Lima", "Setor": "Administrativo", "Função": "Vistoriador", "EPI": "Capacete de Segurança", "CA": "98765", "Status CA": "Válido", "Vencimento CA": "2029-01-01", "Qtd": 1, "Valor Unitário": 80.0, "Total": 80.0, "Motivo": "Perda", "Próxima Troca": "2027-03-05"},
     ]
     st.session_state.df_epi = pd.DataFrame(dados_iniciais)
 
-# --- BANCO DE DADOS TEMPORÁRIO DOS CAS REAIS DAS SUAS IMAGENS ---
+# --- BANCO DE DADOS TEMPORÁRIO DOS CAS REAIS ---
 BASE_CAS_REAIS = {
     "46932": {
         "EPI": "Luva de Proteção (PU)",
@@ -44,7 +45,6 @@ tab_cadastro, tab_dashboard, tab_historico = st.tabs(["📋 Registrar Entrega", 
 with tab_cadastro:
     st.subheader("Registrar Nova Entrega de EPI")
     
-    # Organização do campo de busca e do link externo lado a lado
     col_ca1, col_ca2 = st.columns([3, 1])
     with col_ca1:
         ca_digitado = st.text_input("1. Digite o número do CA para buscar no MTE:", key="ca_input").strip()
@@ -52,7 +52,6 @@ with tab_cadastro:
         st.markdown("<br>", unsafe_allow_html=True)
         st.link_button("🌐 Consultar CA no MTE", "https://caepi.mte.gov.br/internet/ConsultaCAInternet.aspx", use_container_width=True)
     
-    # Variáveis de controle para o preenchimento automático
     desc_automatica = ""
     venc_automatico = ""
     status_automatico = "Válido"
@@ -81,7 +80,6 @@ with tab_cadastro:
     st.markdown("---")
     st.markdown("**2. Dados Complementares da Entrega:**")
     
-    # ALTERADO APENAS O clear_on_submit PARA False AQUI PARA CORRIGIR O ERRO DE VALIDAÇÃO
     with st.form("form_entrega", clear_on_submit=False):
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -127,7 +125,7 @@ with tab_cadastro:
             st.error("Por favor, preencha todos os campos obrigatórios (Nome, CA, Setor, Tipo de EPI e Valor Unitário).")
 
 # ----------------------------------------------------------------------------------------
-# DASHBOARD DE GASTOS
+# ABA 2: DASHBOARD DE GASTOS (TODOS OS GRÁFICOS RESTAURADOS)
 # ----------------------------------------------------------------------------------------
 with tab_dashboard:
     st.subheader("Análise Estratégica de Custos")
@@ -160,6 +158,7 @@ with tab_dashboard:
         
         st.markdown("---")
         
+        # Primeira Fileira de Gráficos
         col_g1, col_g2 = st.columns(2)
         with col_g1:
             st.markdown("**Gasto Mensal de EPI**")
@@ -173,11 +172,25 @@ with tab_dashboard:
             gasto_setor = df_dash.groupby("Setor")["Total"].sum().reset_index()
             fig_setor = px.pie(gasto_setor, values="Total", names="Setor", hole=0.4, color_discrete_sequence=px.colors.qualitative.Pastel)
             st.plotly_chart(fig_setor, use_container_width=True)
+            
+        # Segunda Fileira de Gráficos (RESTAURADA)
+        col_g3, col_g4 = st.columns(2)
+        with col_g3:
+            st.markdown("**Motivos de Troca do EPI**")
+            motivos_df = df_dash.groupby("Motivo")["Qtd"].sum().reset_index()
+            fig_motivo = px.bar(motivos_df, x="Qtd", y="Motivo", orientation='h', color="Motivo", color_discrete_sequence=px.colors.qualitative.Safe)
+            st.plotly_chart(fig_motivo, use_container_width=True)
+            
+        with col_g4:
+            st.markdown("**Top 5 Funcionários com Maior Custo**")
+            top_func = df_dash.groupby("Funcionário")["Total"].sum().reset_index().sort_values(by="Total", ascending=False).head(5)
+            fig_func = px.bar(top_func, x="Total", y="Funcionário", orientation='h', text_auto='.2s', color_discrete_sequence=["#636EFA"])
+            st.plotly_chart(fig_func, use_container_width=True)
     else:
         st.info("Nenhum dado encontrado para os filtros selecionados.")
 
 # ----------------------------------------------------------------------------------------
-# HISTÓRICO, CONSULTA E EDIÇÃO
+# ABA 3: HISTÓRICO, CONSULTA E EDIÇÃO
 # ----------------------------------------------------------------------------------------
 with tab_historico:
     st.subheader("Histórico Geral e Rastreabilidade")
