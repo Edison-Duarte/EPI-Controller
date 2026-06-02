@@ -8,7 +8,6 @@ st.set_page_config(page_title="Gestão de EPI & Custos", layout="wide", page_ico
 
 # --- SIMULAÇÃO DE BANCO DE DADOS (SESSION STATE) ---
 if "df_epi" not in st.session_state:
-    # Dados iniciais para o gráfico não nascer vazio
     dados_iniciais = [
         {"Data": datetime(2026, 1, 15), "Funcionário": "João Silva", "Setor": "Operacional", "Função": "Marinheiro", "EPI": "Bota de PVC", "CA": "12345", "Status CA": "Válido", "Vencimento CA": "2028-12-31", "Qtd": 2, "Valor Unitário": 50.0, "Total": 100.0, "Motivo": "Desgaste Normal", "Próxima Troca": "2026-07-15"},
         {"Data": datetime(2026, 2, 10), "Funcionário": "Maria Souza", "Setor": "Manutenção", "Função": "Mecânico", "EPI": "Luva Nitrílica", "CA": "54321", "Status CA": "Válido", "Vencimento CA": "2027-05-18", "Qtd": 5, "Valor Unitário": 15.0, "Total": 75.0, "Motivo": "Desgaste Excessivo", "Próxima Troca": "2026-03-10"},
@@ -16,8 +15,15 @@ if "df_epi" not in st.session_state:
     ]
     st.session_state.df_epi = pd.DataFrame(dados_iniciais)
 
-# --- REGRAS DE NEGÓCIO DA INTERNET (Prazos de Troca & CA) ---
+# --- REGRAS DE NEGÓCIO EXPANDIDAS (Prazos de Troca & CA) ---
+# Adicionado o seu CA real 46932 mapeado corretamente
 DADOS_EPI_MOCK = {
+    "Luva de Proteção (PU)": {
+        "dias_troca": 30, 
+        "desc": "Luva de segurança confeccionada em fibras sintéticas (poliéster), revestimento em poliuretano (PU) na palma e dedos. Ref: Tátil Black Smart.",
+        "ca_real": "46932",
+        "venc_real": "2031-03-17"
+    },
     "Protetor Auricular": {"dias_troca": 180, "desc": "Protetor auricular plug de silicone"},
     "Óculos de Proteção": {"dias_troca": 365, "desc": "Óculos de proteção lente incolor anti-risco"},
     "Luva Nitrílica": {"dias_troca": 30, "desc": "Luva de segurança nitrílica para agentes químicos"},
@@ -26,14 +32,18 @@ DADOS_EPI_MOCK = {
 }
 
 def consultar_ca_mte(numero_ca, tipo_epi):
-    """Simula a consulta ao caepi.mte.gov.br"""
+    """Consulta simulada aprimorada para aceitar CAs reais informados"""
     if not numero_ca:
         return "Aguardando CA...", "N/A", "N/A", 0
     
     info_epi = DADOS_EPI_MOCK.get(tipo_epi, {"dias_troca": 180, "desc": "Equipamento de Proteção Individual Padrão"})
     
-    # Simulação de dados retornados do Ministério do Trabalho
-    status = "Válido" if int(numero_ca) % 2 != 0 else "Expirado" # Apenas lógica de teste
+    # Validação do CA Real fornecido pelo usuário para o teste
+    if "ca_real" in info_epi and numero_ca.strip() == info_epi["ca_real"]:
+        return "Válido", info_epi["venc_real"], info_epi["desc"], info_epi["dias_troca"]
+        
+    # Lógica genérica padrão para outros CAs digitados no teste
+    status = "Válido" if int(numero_ca) % 2 != 0 else "Expirado"
     vencimento = "2029-08-22" if status == "Válido" else "2025-12-10"
     
     return status, vencimento, info_epi["desc"], info_epi["dias_troca"]
@@ -43,7 +53,6 @@ def consultar_ca_mte(numero_ca, tipo_epi):
 st.title("🛡️ Sistema Inteligente de Gestão e Controle de EPI")
 st.markdown("Controle de entregas, custos, validade de CA e alertas de troca.")
 
-# Criando as abas do App
 tab_cadastro, tab_dashboard, tab_historico = st.tabs(["📋 Registrar Entrega", "📊 Dashboard de Gastos", "🔍 Histórico & Busca"])
 
 # ----------------------------------------------------------------------------------------
@@ -69,28 +78,24 @@ with tab_cadastro:
             valor_un = st.number_input("Valor Unitário (R$)", min_value=0.0, value=0.0, step=0.50)
             data_entrega = st.date_input("Data de Entrega", datetime.now())
 
-        # Botão de envio do formulário
         salvar = st.form_submit_button("Gravar Entrega e Gerar Alertas")
 
-    # Lógica de processamento fora do formulário para validação dinâmica em tempo de execução
     if ca:
         status_ca, venc_ca, desc_epi, dias_sugeridos = consultar_ca_mte(ca, tipo_epi)
-        st.info(f"**Resultado da Consulta Automática (MTE):**\n\n"
-                f"• **Descrição:** {desc_epi}\n\n"
-                f"• **Status do CA:** {status_ca} (Vencimento: {venc_ca})\n\n"
-                f"• **Prazo de troca sugerido pela internet:** {dias_sugeridos} dias.")
         
-        if status_ca == "Expirado":
-            st.warning("⚠️ Atenção: Este CA consta como EXPIRADO no sistema do Ministério do Trabalho!")
+        if status_ca == "Válido":
+            st.success(f"**Resultado da Consulta Automática (MTE):**\n\n"
+                       f"• **Descrição:** {desc_epi}\n\n"
+                       f"• **Status do CA:** ✅ {status_ca} (Vencimento: {venc_ca})\n\n"
+                       f"• **Prazo de troca sugerido pela internet:** {dias_sugeridos} dias para este tipo de atividade.")
+        else:
+            st.warning(f"⚠️ **Atenção:** Este CA consta como EXPIRADO ({venc_ca}) no sistema do Ministério do Trabalho!")
 
     if salvar:
         if nome and ca and valor_un > 0:
             status_ca, venc_ca, desc_epi, dias_sugeridos = consultar_ca_mte(ca, tipo_epi)
-            
-            # Calcular data da próxima troca
             dt_troca = datetime.combine(data_entrega, datetime.min.time()) + timedelta(days=dias_sugeridos)
             
-            # Montar dicionário do novo registro
             novo_registro = {
                 "Data": pd.to_datetime(data_entrega),
                 "Funcionário": nome.strip(),
@@ -107,7 +112,6 @@ with tab_cadastro:
                 "Próxima Troca": dt_troca.strftime('%Y-%m-%d')
             }
             
-            # Adicionar ao DataFrame
             st.session_state.df_epi = pd.concat([st.session_state.df_epi, pd.DataFrame([novo_registro])], ignore_index=True)
             st.success(f"EPI registrado com sucesso para {nome}! Próxima troca prevista para {dt_troca.strftime('%d/%m/%Y')}.")
             st.rerun()
@@ -124,30 +128,23 @@ with tab_dashboard:
         df_dash = st.session_state.df_epi.copy()
         df_dash["Data"] = pd.to_datetime(df_dash["Data"])
         
-        # --- FILTROS LATERAIS INTERATIVOS ---
         st.sidebar.header("Filtros do Dashboard")
-        
-        # Filtro de Período
         min_date = df_dash["Data"].min().date()
         max_date = df_dash["Data"].max().date()
         periodo = st.sidebar.date_input("Período", [min_date, max_date])
         
-        # Filtro de Setor
         setores_disponiveis = df_dash["Setor"].unique().tolist()
         setores_selecionados = st.sidebar.multiselect("Setores", setores_disponiveis, default=setores_disponiveis)
         
-        # Filtro de Funcionário
         funcs_disponiveis = df_dash["Funcionário"].unique().tolist()
         funcs_selecionados = st.sidebar.multiselect("Funcionários", funcs_disponiveis, default=funcs_disponiveis)
         
-        # Aplicando os filtros ao dataframe do dashboard
         if len(periodo) == 2:
             df_dash = df_dash[(df_dash["Data"].dt.date >= periodo[0]) & (df_dash["Data"].dt.date <= periodo[1])]
         
         df_dash = df_dash[df_dash["Setor"].isin(setores_selecionados)]
         df_dash = df_dash[df_dash["Funcionário"].isin(funcs_selecionados)]
         
-        # --- CARDS DE VALORES TOTAIS ---
         c1, c2, c3 = st.columns(3)
         c1.metric("Gasto Total Filtrado", f"R$ {df_dash['Total'].sum():,.2f}")
         c2.metric("Total de Itens Entregues", int(df_dash['Qtd'].sum()))
@@ -155,9 +152,7 @@ with tab_dashboard:
         
         st.markdown("---")
         
-        # --- GRÁFICOS INTERATIVOS ---
         col_g1, col_g2 = st.columns(2)
-        
         with col_g1:
             st.markdown("**Gasto Mensal de EPI**")
             df_dash["Ano-Mês"] = df_dash["Data"].dt.strftime("%Y-%m")
@@ -171,7 +166,6 @@ with tab_dashboard:
             fig_setor = px.pie(gasto_setor, values="Total", names="Setor", hole=0.4, color_discrete_sequence=px.colors.qualitative.Pastel)
             st.plotly_chart(fig_setor, use_container_width=True)
             
-        # Mais uma linha de gráficos
         col_g3, col_g4 = st.columns(2)
         with col_g3:
             st.markdown("**Motivos de Troca do EPI**")
@@ -192,56 +186,43 @@ with tab_dashboard:
 # ----------------------------------------------------------------------------------------
 with tab_historico:
     st.subheader("Histórico Geral e Rastreabilidade")
-    st.markdown("💡 *Dica: Você pode dar um duplo clique em qualquer célula para **alterar os dados** ou selecionar uma linha e apertar `Delete` no seu teclado para **apagar** o registro. Depois, clique em **Salvar Alterações** no final da tabela.*")
+    st.markdown("💡 *Dica: Você pode dar um duplo clique em qualquer célula para **alterar os dados** ou selecionar uma linha e apertar `Delete` no seu teclado para **apagar** o registro.*")
     
-    # Caixa de busca global por nome
     busca_nome = st.text_input("🔍 Digite o nome do funcionário para auditar:")
-    
     df_hist = st.session_state.df_epi.copy()
     
     if busca_nome:
         df_hist = df_hist[df_hist["Funcionário"].str.contains(busca_nome, case=False)]
-        
-        # Se encontrou resultados específicos, mostra o resumo do funcionário
         if not df_hist.empty:
             total_func = df_hist["Total"].sum()
             st.markdown(f"**Análise para o funcionário:** {busca_nome.capitalize()}")
             st.info(f"💰 O funcionário já acumulou um custo total de **R$ {total_func:,.2f}** em EPIs.")
             
-            # Última vez que pegou cada tipo de EPI
             st.markdown("**Última retirada de cada EPI:**")
             df_ultimos = df_hist.sort_values("Data").groupby("EPI").last().reset_index()
             for idx, row in df_ultimos.iterrows():
                 st.write(f"• **{row['EPI']}**: Última retirada em {pd.to_datetime(row['Data']).strftime('%d/%m/%Y')} | CA: {row['CA']} ({row['Status CA']}) | Próxima troca sugerida: {datetime.strptime(row['Próxima Troca'], '%Y-%m-%d').strftime('%d/%m/%Y')}")
             st.markdown("---")
 
-    # Garante consistência de tipos para o editor
     df_hist["Data"] = pd.to_datetime(df_hist["Data"])
     
-    # Exibição do Editor de Dados Interativo
     df_editado = st.data_editor(
         df_hist, 
         use_container_width=True, 
-        num_rows="dynamic", # Permite deletar linhas selecionando-as e apertando Delete
+        num_rows="dynamic",
         column_config={
-            "Total": st.column_config.NumberColumn(disabled=True), # Protege a coluna total para ser recalculada via código
+            "Total": st.column_config.NumberColumn(disabled=True),
             "Data": st.column_config.DatetimeColumn(format="DD/MM/YYYY")
         }
     )
     
-    # Botão para aplicar e persistir as modificações feitas no editor
     if st.button("💾 Salvar Alterações no Histórico", type="primary"):
-        # Recalcula o valor Total caso o usuário tenha alterado quantidade ou valor unitário
         df_editado["Total"] = df_editado["Qtd"] * df_editado["Valor Unitário"]
-        
-        # Se a busca por nome estava ativa, mesclamos as alterações de volta na tabela global original
         if busca_nome:
-            # Remove os registros antigos do filtro e insere os atualizados
             indices_originais_filtrados = st.session_state.df_epi[st.session_state.df_epi["Funcionário"].str.contains(busca_nome, case=False)].index
             st.session_state.df_epi = st.session_state.df_epi.drop(indices_originais_filtrados)
             st.session_state.df_epi = pd.concat([st.session_state.df_epi, df_editado], ignore_index=True)
         else:
-            # Se não havia filtro, substitui a tabela inteira direto
             st.session_state.df_epi = df_editado
             
         st.success("Histórico atualizado e salvo com sucesso!")
