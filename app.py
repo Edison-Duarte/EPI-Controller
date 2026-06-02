@@ -188,20 +188,24 @@ with tab_dashboard:
         st.info("Nenhum dado encontrado para os filtros selecionados.")
 
 # ----------------------------------------------------------------------------------------
-# ABA 3: HISTÓRICO, CONSULTA E EDIÇÃO (COM NOVOS FILTROS AVANÇADOS)
+# ABA 3: HISTÓRICO, CONSULTA E EDIÇÃO (FILTROS DINÂMICOS BASEADOS NOS DADOS EXISTENTES)
 # ----------------------------------------------------------------------------------------
 with tab_historico:
     st.subheader("Histórico Geral e Rastreabilidade")
     st.markdown("💡 *Dica: Você pode filtrar antes de analisar ou alterar os dados diretamente na tabela abaixo.*")
     
-    # Painel expansível contendo os novos filtros de busca
+    # Puxando dinamicamente as opções existentes no banco de dados para popular os filtros
+    lista_setores = ["Todos"] + sorted(st.session_state.df_epi["Setor"].dropna().unique().tolist())
+    lista_epis = ["Todos"] + sorted(st.session_state.df_epi["EPI"].dropna().unique().tolist())
+    
+    # Painel expansível contendo os filtros dinâmicos
     with st.expander("🔍 Painel de Filtros Avançados", expanded=True):
         f_col1, f_col2, f_col3 = st.columns(3)
         with f_col1:
             busca_nome = st.text_input("Nome do Funcionário:")
-            busca_setor = st.text_input("Setor:")
+            busca_setor = st.selectbox("Filtrar por Setor:", lista_setores) # Transformado em Menu Suspenso Inteligente
         with f_col2:
-            busca_epi = st.text_input("Tipo de EPI:")
+            busca_epi = st.selectbox("Filtrar por Tipo de EPI:", lista_epis) # Transformado em Menu Suspenso Inteligente
             busca_ca = st.text_input("Número do CA:")
         with f_col3:
             df_periodo = st.session_state.df_epi.copy()
@@ -214,13 +218,13 @@ with tab_historico:
     df_filtrado_hist = st.session_state.df_epi.copy()
     df_filtrado_hist["Data"] = pd.to_datetime(df_filtrado_hist["Data"])
     
-    # Aplicando os filtros caso o usuário digite algo
+    # Aplicando os filtros na tabela
     if busca_nome:
         df_filtrado_hist = df_filtrado_hist[df_filtrado_hist["Funcionário"].str.contains(busca_nome, case=False)]
-    if busca_setor:
-        df_filtrado_hist = df_filtrado_hist[df_filtrado_hist["Setor"].str.contains(busca_setor, case=False)]
-    if busca_epi:
-        df_filtrado_hist = df_filtrado_hist[df_filtrado_hist["EPI"].str.contains(busca_epi, case=False)]
+    if busca_setor != "Todos":
+        df_filtrado_hist = df_filtrado_hist[df_filtrado_hist["Setor"] == busca_setor]
+    if busca_epi != "Todos":
+        df_filtrado_hist = df_filtrado_hist[df_filtrado_hist["EPI"] == busca_epi]
     if busca_ca:
         df_filtrado_hist = df_filtrado_hist[df_filtrado_hist["CA"].str.contains(busca_ca, case=False)]
     if len(busca_periodo) == 2:
@@ -248,12 +252,10 @@ with tab_historico:
         df_editado["Total"] = df_editado["Qtd"] * df_editado["Valor Unitário"]
         
         # Se usou filtros, atualiza apenas as linhas que foram filtradas na tela
-        if busca_nome or busca_setor or busca_epi or busca_ca or (len(busca_periodo) == 2):
-            # Remove os registros antigos correspondentes ao filtro e adiciona os novos modificados
+        if busca_nome or (busca_setor != "Todos") or (busca_epi != "Todos") or busca_ca or (len(busca_periodo) == 2):
             st.session_state.df_epi = st.session_state.df_epi.drop(df_filtrado_hist.index)
             st.session_state.df_epi = pd.concat([st.session_state.df_epi, df_editado], ignore_index=True)
         else:
-            # Se a tabela não estava filtrada, substitui o banco inteiro de uma vez
             st.session_state.df_epi = df_editado
             
         st.success("Histórico atualizado com sucesso!")
