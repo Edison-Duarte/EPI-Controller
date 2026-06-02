@@ -6,9 +6,8 @@ from datetime import datetime, timedelta
 # Configuração da página
 st.set_page_config(page_title="Gestão de EPI & Custos", layout="wide", page_icon="🛡️")
 
-# --- SIMULAÇÃO DE BANCO DE DADOS (SESSION STATE CORRIGIDO) ---
-# Usando .get() para garantir que se o banco já existir, ele NUNCA seja sobrescrito pelos dados iniciais
-if "df_epi" not in st.session_state or st.session_state.get("df_epi") is None:
+# --- SIMULAÇÃO DE BANCO DE DADOS (SESSION STATE) ---
+if "df_epi" not in st.session_state:
     dados_iniciais = [
         {"Data": datetime(2026, 1, 15), "Funcionário": "João Silva", "Setor": "Operacional", "Função": "Marinheiro", "EPI": "Bota de PVC", "CA": "12345", "Status CA": "Válido", "Vencimento CA": "2028-12-31", "Qtd": 2, "Valor Unitário": 50.0, "Total": 100.0, "Motivo": "Desgaste Normal", "Próxima Troca": "2026-07-15"},
         {"Data": datetime(2026, 2, 10), "Funcionário": "Maria Souza", "Setor": "Manutenção", "Função": "Mecânico", "EPI": "Luva Nitrílica", "CA": "54321", "Status CA": "Válido", "Vencimento CA": "2027-05-18", "Qtd": 5, "Valor Unitário": 15.0, "Total": 75.0, "Motivo": "Desgaste Excessivo", "Próxima Troca": "2026-03-10"},
@@ -81,11 +80,14 @@ with tab_cadastro:
     st.markdown("---")
     st.markdown("**2. Dados Complementares da Entrega:**")
     
+    # Criando lista dinâmica de setores para o formulário de cadastro também baseado no histórico
+    setores_cadastro = sorted(st.session_state.df_epi["Setor"].dropna().unique().tolist())
+    
     with st.form("form_entrega", clear_on_submit=False):
         col1, col2, col3 = st.columns(3)
         with col1:
             nome = st.text_input("Nome do Funcionário")
-            setor = st.text_input("Setor")
+            setor = st.selectbox("Setor", setores_cadastro)
             funcao = st.text_input("Função")
         
         with col2:
@@ -100,7 +102,8 @@ with tab_cadastro:
         salvar = st.form_submit_button("Gravar Entrega no Histórico")
 
     if salvar:
-        if nome and ca_digitado and valor_un > 0 and setor and tipo_epi:
+        # CORREÇÃO DA VALIDAÇÃO: Garante a leitura correta de strings e números independente de ser Selectbox ou TextInput
+        if str(nome).strip() != "" and str(ca_digitado).strip() != "" and valor_un > 0 and str(setor).strip() != "" and str(tipo_epi).strip() != "":
             dt_troca = datetime.combine(data_entrega, datetime.min.time()) + timedelta(days=dias_sugeridos)
             
             novo_registro = {
@@ -126,7 +129,7 @@ with tab_cadastro:
             st.error("Por favor, preencha todos os campos obrigatórios (Nome, CA, Setor, Tipo de EPI e Valor Unitário).")
 
 # ----------------------------------------------------------------------------------------
-# DASHBOARD DE GASTOS
+# ABA 2: DASHBOARD DE GASTOS
 # ----------------------------------------------------------------------------------------
 with tab_dashboard:
     st.subheader("Análise Estratégica de Custos")
@@ -254,5 +257,5 @@ with tab_historico:
         else:
             st.session_state.df_epi = df_editado
             
-        st.success("Histórico updated com sucesso!")
+        st.success("Histórico atualizado com sucesso!")
         st.rerun()
