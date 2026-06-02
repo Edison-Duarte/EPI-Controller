@@ -49,7 +49,8 @@ with tab_cadastro:
     with col_ca1:
         ca_digitado = st.text_input("1. Digite o número do CA para buscar no MTE:", key="ca_input").strip()
     with col_ca2:
-st.markdown("<br>", unsafe_allow_html=True) # Alinhamento visual corrigido
+st.markdown("<br>", unsafe_allow_html=True) 
+# Alinhamento visual corrigido
 st.link_button("🌐 Consultar CA no MTE", "https://caepi.mte.gov.br/internet/ConsultaCAInternet.aspx", use_container_width=True)
     
     # Variáveis de controle para o preenchimento automático
