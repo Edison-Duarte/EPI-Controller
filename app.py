@@ -80,22 +80,18 @@ with tab_cadastro:
     st.markdown("---")
     st.markdown("**2. Dados Complementares da Entrega:**")
     
-    # Criando as opções de setores incluindo a possibilidade de escrever um novo
-    setores_cadastro = sorted(st.session_state.df_epi["Setor"].dropna().unique().tolist())
-    opcoes_setor = setores_cadastro + ["Outro (Digitar Novo...)"]
+    # Coleta a lista de setores que já existem no histórico para servir de sugestão inteligente
+    setores_existentes = sorted(st.session_state.df_epi["Setor"].dropna().unique().tolist())
     
     with st.form("form_entrega", clear_on_submit=False):
         col1, col2, col3 = st.columns(3)
         with col1:
             nome = st.text_input("Nome do Funcionário")
-            setor_selecionado = st.selectbox("Setor", opcoes_setor)
             
-            # Se escolher "Outro (Digitar Novo...)", abre um campo de texto logo abaixo para digitar livremente
-            if setor_selecionado == "Outro (Digitar Novo...)":
-                setor_final = st.text_input("Digite o nome do novo Setor:")
-            else:
-                setor_final = setor_selecionado
-                
+            # ALTERAÇÃO AQUI: Mudado para text_input com ajuda visual dinâmica. Isso permite escrever QUALQUER COISA sem travar.
+            st.markdown(f"💡 *Setores existentes: {', '.join(setores_existentes)}*")
+            setor = st.text_input("Setor")
+            
             funcao = st.text_input("Função")
         
         with col2:
@@ -110,13 +106,13 @@ with tab_cadastro:
         salvar = st.form_submit_button("Gravar Entrega no Histórico")
 
     if salvar:
-        if str(nome).strip() != "" and str(ca_digitado).strip() != "" and valor_un > 0 and str(setor_final).strip() != "" and str(tipo_epi).strip() != "":
+        if str(nome).strip() != "" and str(ca_digitado).strip() != "" and valor_un > 0 and str(setor).strip() != "" and str(tipo_epi).strip() != "":
             dt_troca = datetime.combine(data_entrega, datetime.min.time()) + timedelta(days=dias_sugeridos)
             
             novo_registro = {
                 "Data": pd.to_datetime(data_entrega),
                 "Funcionário": nome.strip(),
-                "Setor": setor_final.strip(),
+                "Setor": setor.strip(),
                 "Função": funcao.strip(),
                 "EPI": tipo_epi.strip(),
                 "CA": ca_digitado,
