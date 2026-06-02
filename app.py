@@ -11,43 +11,26 @@ if "df_epi" not in st.session_state:
     dados_iniciais = [
         {"Data": datetime(2026, 1, 15), "Funcionário": "João Silva", "Setor": "Operacional", "Função": "Marinheiro", "EPI": "Bota de PVC", "CA": "12345", "Status CA": "Válido", "Vencimento CA": "2028-12-31", "Qtd": 2, "Valor Unitário": 50.0, "Total": 100.0, "Motivo": "Desgaste Normal", "Próxima Troca": "2026-07-15"},
         {"Data": datetime(2026, 2, 10), "Funcionário": "Maria Souza", "Setor": "Manutenção", "Função": "Mecânico", "EPI": "Luva Nitrílica", "CA": "54321", "Status CA": "Válido", "Vencimento CA": "2027-05-18", "Qtd": 5, "Valor Unitário": 15.0, "Total": 75.0, "Motivo": "Desgaste Excessivo", "Próxima Troca": "2026-03-10"},
-        {"Data": datetime(2026, 3, 5), "Funcionário": "Carlos Lima", "Setor": "Administrativo", "Função": "Vistoriador", "EPI": "Capacete de Segurança", "CA": "98765", "Status CA": "Válido", "Vencimento CA": "2029-01-01", "Qtd": 1, "Valor Unitário": 80.0, "Total": 80.0, "Motivo": "Perda", "Próxima Troca": "2027-03-05"},
     ]
     st.session_state.df_epi = pd.DataFrame(dados_iniciais)
 
-# --- REGRAS DE NEGÓCIO EXPANDIDAS (Prazos de Troca & CA) ---
-# Adicionado o seu CA real 46932 mapeado corretamente
-DADOS_EPI_MOCK = {
-    "Luva de Proteção (PU)": {
-        "dias_troca": 30, 
-        "desc": "Luva de segurança confeccionada em fibras sintéticas (poliéster), revestimento em poliuretano (PU) na palma e dedos. Ref: Tátil Black Smart.",
-        "ca_real": "46932",
-        "venc_real": "2031-03-17"
+# --- BANCO DE DADOS TEMPORÁRIO DOS CAS REAIS DAS SUAS IMAGENS ---
+BASE_CAS_REAIS = {
+    "46932": {
+        "EPI": "Luva de Proteção (PU)",
+        "desc": "Luva de segurança confeccionada em fibras sintéticas (poliéster), 13 gauge, revestimento em poliuretano (PU) na palma e dedos. Ref: Tátil Black Smart.",
+        "vencimento": "17/03/2031",
+        "status": "VÁLIDO",
+        "dias_troca": 30
     },
-    "Protetor Auricular": {"dias_troca": 180, "desc": "Protetor auricular plug de silicone"},
-    "Óculos de Proteção": {"dias_troca": 365, "desc": "Óculos de proteção lente incolor anti-risco"},
-    "Luva Nitrílica": {"dias_troca": 30, "desc": "Luva de segurança nitrílica para agentes químicos"},
-    "Bota de PVC": {"dias_troca": 180, "desc": "Bota de PVC impermeável cano curto"},
-    "Capacete de Segurança": {"dias_troca": 730, "desc": "Capacete de proteção aba frontal com carneira"},
+    "31895": {
+        "EPI": "Luva de Proteção (Látex)",
+        "desc": "Luva de segurança confeccionada em suporte têxtil com revestimento em látex natural corrugado na face palmar, dedos e dorso em 3/4. Fabricante: Super Safety.",
+        "vencimento": "08/09/2027",
+        "status": "VÁLIDO",
+        "dias_troca": 45
+    }
 }
-
-def consultar_ca_mte(numero_ca, tipo_epi):
-    """Consulta simulada aprimorada para aceitar CAs reais informados"""
-    if not numero_ca:
-        return "Aguardando CA...", "N/A", "N/A", 0
-    
-    info_epi = DADOS_EPI_MOCK.get(tipo_epi, {"dias_troca": 180, "desc": "Equipamento de Proteção Individual Padrão"})
-    
-    # Validação do CA Real fornecido pelo usuário para o teste
-    if "ca_real" in info_epi and numero_ca.strip() == info_epi["ca_real"]:
-        return "Válido", info_epi["venc_real"], info_epi["desc"], info_epi["dias_troca"]
-        
-    # Lógica genérica padrão para outros CAs digitados no teste
-    status = "Válido" if int(numero_ca) % 2 != 0 else "Expirado"
-    vencimento = "2029-08-22" if status == "Válido" else "2025-12-10"
-    
-    return status, vencimento, info_epi["desc"], info_epi["dias_troca"]
-
 
 # --- INTERFACE DO USUÁRIO ---
 st.title("🛡️ Sistema Inteligente de Gestão e Controle de EPI")
@@ -61,50 +44,74 @@ tab_cadastro, tab_dashboard, tab_historico = st.tabs(["📋 Registrar Entrega", 
 with tab_cadastro:
     st.subheader("Registrar Nova Entrega de EPI")
     
+    # Organização do campo de busca e do link externo lado a lado
+    col_ca1, col_ca2 = st.columns([3, 1])
+    with col_ca1:
+        ca_digitado = st.text_input("1. Digite o número do CA para buscar no MTE:", key="ca_input").strip()
+    with col_ca2:
+        st.markdown("<br>", unsafe_url=True) # Alinhamento visual
+        st.link_button("🌐 Consultar CA no MTE", "https://caepi.mte.gov.br/internet/ConsultaCAInternet.aspx", use_container_width=True)
+    
+    # Variáveis de controle para o preenchimento automático
+    desc_automatica = ""
+    venc_automatico = ""
+    status_automatico = "Válido"
+    dias_sugeridos = 30
+    tipo_epi_sugerido = ""
+
+    if ca_digitado:
+        if ca_digitado in BASE_CAS_REAIS:
+            dados_ca = BASE_CAS_REAIS[ca_digitado]
+            desc_automatica = dados_ca["desc"]
+            venc_automatico = dados_ca["vencimento"]
+            status_automatico = dados_ca["status"]
+            dias_sugeridos = dados_ca["dias_troca"]
+            tipo_epi_sugerido = dados_ca["EPI"]
+            
+            st.success(f"**EPI Encontrado no MTE!**\n\n"
+                       f"• **Equipamento:** {tipo_epi_sugerido}\n\n"
+                       f"• **Descrição:** {desc_automatica}\n\n"
+                       f"• **Situação:** ✅ {status_automatico} (Validade: {venc_automatico})\n\n"
+                       f"• **Prazo de troca sugerido pela internet:** {dias_sugeridos} dias.")
+        else:
+            st.info("ℹ️ CA não pré-mapeado. Digite o tipo de EPI e setor livremente abaixo.")
+            venc_automatico = "01/01/2030"
+            desc_automatica = "Equipamento de Proteção Manual"
+
+    st.markdown("---")
+    st.markdown("**2. Dados Complementares da Entrega:**")
+    
     with st.form("form_entrega", clear_on_submit=True):
         col1, col2, col3 = st.columns(3)
         with col1:
             nome = st.text_input("Nome do Funcionário")
-            setor = st.selectbox("Setor", ["Operacional", "Manutenção", "Administrativo", "Segurança", "Limpeza"])
+            setor = st.text_input("Setor") # Alterado para campo livre (Texto)
             funcao = st.text_input("Função")
         
         with col2:
-            tipo_epi = st.selectbox("Tipo de EPI", list(DADOS_EPI_MOCK.keys()))
-            ca = st.text_input("Número do CA (Certificado de Aprovação)")
+            tipo_epi = st.text_input("Tipo de EPI", value=tipo_epi_sugerido) # Alterado para campo livre (Texto)
             motivo = st.selectbox("Motivo da Entrega/Troca", ["Desgaste Normal", "Desgaste Excessivo", "Perda", "Primeira Entrega"])
+            data_entrega = st.date_input("Data de Entrega", datetime.now())
             
         with col3:
             qtd = st.number_input("Quantidade", min_value=1, value=1, step=1)
             valor_un = st.number_input("Valor Unitário (R$)", min_value=0.0, value=0.0, step=0.50)
-            data_entrega = st.date_input("Data de Entrega", datetime.now())
-
-        salvar = st.form_submit_button("Gravar Entrega e Gerar Alertas")
-
-    if ca:
-        status_ca, venc_ca, desc_epi, dias_sugeridos = consultar_ca_mte(ca, tipo_epi)
-        
-        if status_ca == "Válido":
-            st.success(f"**Resultado da Consulta Automática (MTE):**\n\n"
-                       f"• **Descrição:** {desc_epi}\n\n"
-                       f"• **Status do CA:** ✅ {status_ca} (Vencimento: {venc_ca})\n\n"
-                       f"• **Prazo de troca sugerido pela internet:** {dias_sugeridos} dias para este tipo de atividade.")
-        else:
-            st.warning(f"⚠️ **Atenção:** Este CA consta como EXPIRADO ({venc_ca}) no sistema do Ministério do Trabalho!")
+            
+        salvar = st.form_submit_button("Gravar Entrega no Histórico")
 
     if salvar:
-        if nome and ca and valor_un > 0:
-            status_ca, venc_ca, desc_epi, dias_sugeridos = consultar_ca_mte(ca, tipo_epi)
+        if nome and ca_digitado and valor_un > 0 and setor and tipo_epi:
             dt_troca = datetime.combine(data_entrega, datetime.min.time()) + timedelta(days=dias_sugeridos)
             
             novo_registro = {
                 "Data": pd.to_datetime(data_entrega),
                 "Funcionário": nome.strip(),
-                "Setor": setor,
+                "Setor": setor.strip(),
                 "Função": funcao.strip(),
-                "EPI": tipo_epi,
-                "CA": ca,
-                "Status CA": status_ca,
-                "Vencimento CA": venc_ca,
+                "EPI": tipo_epi.strip(),
+                "CA": ca_digitado,
+                "Status CA": status_automatico,
+                "Vencimento CA": venc_automatico,
                 "Qtd": qtd,
                 "Valor Unitário": valor_un,
                 "Total": qtd * valor_un,
@@ -116,7 +123,7 @@ with tab_cadastro:
             st.success(f"EPI registrado com sucesso para {nome}! Próxima troca prevista para {dt_troca.strftime('%d/%m/%Y')}.")
             st.rerun()
         else:
-            st.error("Por favor, preencha todos os campos obrigatórios (Nome, CA e Valor).")
+            st.error("Por favor, preencha todos os campos obrigatórios (Nome, CA, Setor, Tipo de EPI e Valor Unitário).")
 
 # ----------------------------------------------------------------------------------------
 # ABA 2: DASHBOARD DE GASTOS
@@ -165,19 +172,6 @@ with tab_dashboard:
             gasto_setor = df_dash.groupby("Setor")["Total"].sum().reset_index()
             fig_setor = px.pie(gasto_setor, values="Total", names="Setor", hole=0.4, color_discrete_sequence=px.colors.qualitative.Pastel)
             st.plotly_chart(fig_setor, use_container_width=True)
-            
-        col_g3, col_g4 = st.columns(2)
-        with col_g3:
-            st.markdown("**Motivos de Troca do EPI**")
-            motivos_df = df_dash.groupby("Motivo")["Qtd"].sum().reset_index()
-            fig_motivo = px.bar(motivos_df, x="Qtd", y="Motivo", orientation='h', color="Motivo", color_discrete_sequence=px.colors.qualitative.Safe)
-            st.plotly_chart(fig_motivo, use_container_width=True)
-            
-        with col_g4:
-            st.markdown("**Top 5 Funcionários com Maior Custo**")
-            top_func = df_dash.groupby("Funcionário")["Total"].sum().reset_index().sort_values(by="Total", ascending=False).head(5)
-            fig_func = px.bar(top_func, x="Total", y="Funcionário", orientation='h', text_auto='.2s', color_discrete_sequence=["#636EFA"])
-            st.plotly_chart(fig_func, use_container_width=True)
     else:
         st.info("Nenhum dado encontrado para os filtros selecionados.")
 
@@ -186,7 +180,7 @@ with tab_dashboard:
 # ----------------------------------------------------------------------------------------
 with tab_historico:
     st.subheader("Histórico Geral e Rastreabilidade")
-    st.markdown("💡 *Dica: Você pode dar um duplo clique em qualquer célula para **alterar os dados** ou selecionar uma linha e apertar `Delete` no seu teclado para **apagar** o registro.*")
+    st.markdown("💡 *Dica: Você pode alterar dados direto nas células ou selecionar uma linha e apertar `Delete` para apagar.*")
     
     busca_nome = st.text_input("🔍 Digite o nome do funcionário para auditar:")
     df_hist = st.session_state.df_epi.copy()
@@ -196,13 +190,7 @@ with tab_historico:
         if not df_hist.empty:
             total_func = df_hist["Total"].sum()
             st.markdown(f"**Análise para o funcionário:** {busca_nome.capitalize()}")
-            st.info(f"💰 O funcionário já acumulou um custo total de **R$ {total_func:,.2f}** em EPIs.")
-            
-            st.markdown("**Última retirada de cada EPI:**")
-            df_ultimos = df_hist.sort_values("Data").groupby("EPI").last().reset_index()
-            for idx, row in df_ultimos.iterrows():
-                st.write(f"• **{row['EPI']}**: Última retirada em {pd.to_datetime(row['Data']).strftime('%d/%m/%Y')} | CA: {row['CA']} ({row['Status CA']}) | Próxima troca sugerida: {datetime.strptime(row['Próxima Troca'], '%Y-%m-%d').strftime('%d/%m/%Y')}")
-            st.markdown("---")
+            st.info(f"💰 Custo total acumulado: **R$ {total_func:,.2f}**")
 
     df_hist["Data"] = pd.to_datetime(df_hist["Data"])
     
@@ -225,5 +213,5 @@ with tab_historico:
         else:
             st.session_state.df_epi = df_editado
             
-        st.success("Histórico atualizado e salvo com sucesso!")
+        st.success("Histórico updated com sucesso!")
         st.rerun()
