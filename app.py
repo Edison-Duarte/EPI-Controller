@@ -12,8 +12,8 @@ if "df_epi" not in st.session_state:
     dados_iniciais = [
         {"Data": datetime(2026, 1, 15), "Funcionário": "João Silva", "Setor": "Operacional", "Função": "Marinheiro", "EPI": "Bota de PVC", "CA": "12345", "Status CA": "Válido", "Vencimento CA": "2028-12-31", "Qtd": 2, "Valor Unitário": 50.0, "Total": 100.0, "Motivo": "Desgaste Normal", "Próxima Troca": "2026-07-15"},
         {"Data": datetime(2026, 2, 10), "Funcionário": "Maria Souza", "Setor": "Manutenção", "Função": "Mecânico", "EPI": "Luva Nitrílica", "CA": "54321", "Status CA": "Válido", "Vencimento CA": "2027-05-18", "Qtd": 5, "Valor Unitário": 15.0, "Total": 75.0, "Motivo": "Desgaste Excessivo", "Próxima Troca": "2026-03-10"},
-# Linha 15 corrigida:
-{"Data": datetime(2026, 3, 5), "Funcionário": "Carlos Lima", "Setor": "Administrativo", "Função": "Vistoriador", "EPI": "Capacete de Segurança", "CA": "98765", "Status CA": "Válido", "Vencimento CA": "2029-01-01", "Qtd": 1, "Valor Unitário": 80.0, "Total": 80.0, "Motivo": "Perda", "Próxima Troca": "2027-03-05"},    ]
+        {"Data": datetime(2026, 3, 5), "Funcionário": "Carlos Lima", "Setor": "Administrativo", "Função": "Vistoriador", "EPI": "Capacete de Segurança", "CA": "98765", "Status CA": "Válido", "Vencimento CA": "2029-01-01", "Qtd": 1, "Valor Unitário": 80.0, "Total": 80.0, "Motivo": "Perda", "Próxima Troca": "2027-03-05"},
+    ]
     st.session_state.df_epi = pd.DataFrame(dados_iniciais)
 
 # --- REGRAS DE NEGÓCIO DA INTERNET (Prazos de Troca & CA) ---
@@ -188,15 +188,17 @@ with tab_dashboard:
         st.info("Nenhum dado encontrado para os filtros selecionados.")
 
 # ----------------------------------------------------------------------------------------
-# ABA 3: HISTÓRICO E CONSULTA
+# ABA 3: HISTÓRICO, CONSULTA E EDIÇÃO
 # ----------------------------------------------------------------------------------------
 with tab_historico:
     st.subheader("Histórico Geral e Rastreabilidade")
+    st.markdown("💡 *Dica: Você pode dar um duplo clique em qualquer célula para **alterar os dados** ou selecionar uma linha e apertar `Delete` no seu teclado para **apagar** o registro. Depois, clique em **Salvar Alterações** no final da tabela.*")
     
     # Caixa de busca global por nome
     busca_nome = st.text_input("🔍 Digite o nome do funcionário para auditar:")
     
     df_hist = st.session_state.df_epi.copy()
+    
     if busca_nome:
         df_hist = df_hist[df_hist["Funcionário"].str.contains(busca_nome, case=False)]
         
@@ -213,5 +215,34 @@ with tab_historico:
                 st.write(f"• **{row['EPI']}**: Última retirada em {pd.to_datetime(row['Data']).strftime('%d/%m/%Y')} | CA: {row['CA']} ({row['Status CA']}) | Próxima troca sugerida: {datetime.strptime(row['Próxima Troca'], '%Y-%m-%d').strftime('%d/%m/%Y')}")
             st.markdown("---")
 
-    # Exibição da tabela completa ou filtrada
-    st.dataframe(df_hist, use_container_width=True)
+    # Garante consistência de tipos para o editor
+    df_hist["Data"] = pd.to_datetime(df_hist["Data"])
+    
+    # Exibição do Editor de Dados Interativo
+    df_editado = st.data_editor(
+        df_hist, 
+        use_container_width=True, 
+        num_rows="dynamic", # Permite deletar linhas selecionando-as e apertando Delete
+        column_config={
+            "Total": st.column_config.NumberColumn(disabled=True), # Protege a coluna total para ser recalculada via código
+            "Data": st.column_config.DatetimeColumn(format="DD/MM/YYYY")
+        }
+    )
+    
+    # Botão para aplicar e persistir as modificações feitas no editor
+    if st.button("💾 Salvar Alterações no Histórico", type="primary"):
+        # Recalcula o valor Total caso o usuário tenha alterado quantidade ou valor unitário
+        df_editado["Total"] = df_editado["Qtd"] * df_editado["Valor Unitário"]
+        
+        # Se a busca por nome estava ativa, mesclamos as alterações de volta na tabela global original
+        if busca_nome:
+            # Remove os registros antigos do filtro e insere os atualizados
+            indices_originais_filtrados = st.session_state.df_epi[st.session_state.df_epi["Funcionário"].str.contains(busca_nome, case=False)].index
+            st.session_state.df_epi = st.session_state.df_epi.drop(indices_originais_filtrados)
+            st.session_state.df_epi = pd.concat([st.session_state.df_epi, df_editado], ignore_index=True)
+        else:
+            # Se não havia filtro, substitui a tabela inteira direto
+            st.session_state.df_epi = df_editado
+            
+        st.success("Histórico atualizado e salvo com sucesso!")
+        st.rerun()
