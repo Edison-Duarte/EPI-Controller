@@ -12,8 +12,8 @@ if "df_epi" not in st.session_state:
     dados_iniciais = [
         {"Data": datetime(2026, 1, 15), "Funcionário": "João Silva", "Setor": "Operacional", "Função": "Marinheiro", "EPI": "Bota de PVC", "CA": "12345", "Status CA": "Válido", "Vencimento CA": "2028-12-31", "Qtd": 2, "Valor Unitário": 50.0, "Total": 100.0, "Motivo": "Desgaste Normal", "Próxima Troca": "2026-07-15"},
         {"Data": datetime(2026, 2, 10), "Funcionário": "Maria Souza", "Setor": "Manutenção", "Função": "Mecânico", "EPI": "Luva Nitrílica", "CA": "54321", "Status CA": "Válido", "Vencimento CA": "2027-05-18", "Qtd": 5, "Valor Unitário": 15.0, "Total": 75.0, "Motivo": "Desgaste Excessivo", "Próxima Troca": "2026-03-10"},
-        {"Data": datetime(2026, 3, 05), "Funcionário": "Carlos Lima", "Setor": "Administrativo", "Função": "Vistoriador", "EPI": "Capacete de Segurança", "CA": "98765", "Status CA": "Válido", "Vencimento CA": "2029-01-01", "Qtd": 1, "Valor Unitário": 80.0, "Total": 80.0, "Motivo": "Perda", "Próxima Troca": "2027-03-05"},
-    ]
+# Linha 15 corrigida:
+{"Data": datetime(2026, 3, 5), "Funcionário": "Carlos Lima", "Setor": "Administrativo", "Função": "Vistoriador", "EPI": "Capacete de Segurança", "CA": "98765", "Status CA": "Válido", "Vencimento CA": "2029-01-01", "Qtd": 1, "Valor Unitário": 80.0, "Total": 80.0, "Motivo": "Perda", "Próxima Troca": "2027-03-05"},    ]
     st.session_state.df_epi = pd.DataFrame(dados_iniciais)
 
 # --- REGRAS DE NEGÓCIO DA INTERNET (Prazos de Troca & CA) ---
